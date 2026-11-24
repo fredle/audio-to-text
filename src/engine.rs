@@ -339,3 +339,53 @@ mod tests {
         assert_eq!(Failure::from(DecodeError::NoAudio), Failure::NoAudio);
     }
 }
+
+/// End-to-end check against the real model. It downloads the Small model if
+/// it is missing and transcribes the file named by `ATT_E2E_FILE`, then
+/// looks for each comma-separated word of `ATT_E2E_EXPECT` in the text:
+/// `cargo test --release e2e -- --ignored --nocapture`.
+#[cfg(test)]
+mod e2e {
+    use super::*;
+
+    #[test]
+    #[ignore]
+    fn transcribes_a_real_file() {
+        let Ok(path) = std::env::var("ATT_E2E_FILE") else {
+            return;
+        };
+        let model = Model::Small;
+        if !model.is_ready() {
+            let started = std::time::Instant::now();
+            crate::model::download(model, &Default::default())
+                .map_err(|e| e.message())
+                .expect("model download");
+            println!("model downloaded in {:.0} s", started.elapsed().as_secs_f64());
+        }
+        let (jobs, events) = spawn(eframe::egui::Context::default());
+        let job = Job { id: 1, path: path.into(), model, language: None, progress: Default::default() };
+        jobs.send(job).unwrap();
+        let started = std::time::Instant::now();
+        let mut text = String::new();
+        loop {
+            match events.recv().unwrap() {
+                Event::Started { seconds, .. } => println!("length {seconds:?} s"),
+                Event::Language { code, .. } => println!("language {code}"),
+                Event::Segment { segment, .. } => {
+                    println!("[{} - {}] {}", segment.start_ms, segment.end_ms, segment.text);
+                    text.push_str(&segment.text);
+                }
+                Event::Finished { outcome, .. } => {
+                    println!("finished in {:.1} s", started.elapsed().as_secs_f64());
+                    assert_eq!(outcome, Outcome::Done);
+                    break;
+                }
+            }
+        }
+        let lower = text.to_lowercase();
+        let expect = std::env::var("ATT_E2E_EXPECT").unwrap_or_default();
+        for word in expect.split(',').filter(|w| !w.is_empty()) {
+            assert!(lower.contains(word), "missing {word:?} in {text:?}");
+        }
+    }
+}

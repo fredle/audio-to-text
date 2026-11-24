@@ -38,12 +38,23 @@ const SHOT_SCENES: usize = 4;
 /// How often the window redraws while working.
 const BUSY_REPAINT: Duration = Duration::from_millis(250);
 
+/// The app's own icon for the title bar and taskbar, drawn by
+/// `assets/make-icon.ps1`. Without it the window shows egui's logo.
+fn window_icon() -> egui::IconData {
+    egui::IconData {
+        rgba: include_bytes!("../assets/icon-64.rgba").to_vec(),
+        width: 64,
+        height: 64,
+    }
+}
+
 pub fn run(args: Vec<String>) -> eframe::Result<()> {
     let viewport = egui::ViewportBuilder::default()
         .with_title(APP_NAME)
         .with_inner_size([WIDTH, HEIGHT])
         .with_min_inner_size(MIN_SIZE)
-        .with_drag_and_drop(true);
+        .with_drag_and_drop(true)
+        .with_icon(window_icon());
     let options = eframe::NativeOptions {
         viewport,
         ..Default::default()
