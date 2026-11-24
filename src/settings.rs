@@ -13,10 +13,28 @@ pub struct Settings {
     /// a day.
     #[serde(default)]
     pub last_update_check: u64,
+    /// Whisper language code, or "auto" to detect it.
+    #[serde(default = "default_language")]
+    pub language: String,
+    /// "small" or "large".
+    #[serde(default = "default_model")]
+    pub model: String,
+    /// A licence key, once one is entered (unused while there is no paid
+    /// tier).
+    #[serde(default)]
+    pub license_key: String,
 }
 
 fn default_true() -> bool {
     true
+}
+
+fn default_language() -> String {
+    "auto".to_owned()
+}
+
+fn default_model() -> String {
+    "small".to_owned()
 }
 
 impl Default for Settings {
@@ -24,6 +42,9 @@ impl Default for Settings {
         Self {
             auto_update: true,
             last_update_check: 0,
+            language: default_language(),
+            model: default_model(),
+            license_key: String::new(),
         }
     }
 }

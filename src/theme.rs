@@ -49,6 +49,54 @@ pub fn title() -> FontId {
     FontId::new(TITLE_SIZE, semibold())
 }
 
+/// The transcript's running text.
+pub fn reading() -> FontId {
+    FontId::new(15.0, FontFamily::Proportional)
+}
+
+/// Line height of the transcript's running text.
+pub const READING_LINE: f32 = 23.0;
+
+/// A heading inside a card, such as a file name.
+pub fn card_title() -> FontId {
+    FontId::new(16.0, semibold())
+}
+
+/// A strong line in an empty state.
+pub fn strong() -> FontId {
+    FontId::new(BODY_SIZE, semibold())
+}
+
+/// A thin full-width line between parts of a card.
+pub fn rule(ui: &mut egui::Ui, p: Palette) {
+    let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), 1.0), Sense::hover());
+    ui.painter().rect_filled(rect, 0, p.border);
+}
+
+/// A one-line text field with a search icon inside, on a surface.
+pub fn search_field(ui: &mut egui::Ui, id: egui::Id, text: &mut String, width: f32, p: Palette) -> egui::Response {
+    let (rect, _) = ui.allocate_exact_size(vec2(width, CONTROL_HEIGHT), Sense::hover());
+    let focused = ui.memory(|m| m.has_focus(id));
+    ui.painter().rect(
+        rect,
+        CONTROL_RADIUS,
+        p.surface,
+        Stroke::new(1.0, if focused { p.accent } else { p.border }),
+        StrokeKind::Inside,
+    );
+    paint_icon(ui.painter(), pos2(rect.left() + 16.0, rect.center().y), Icon::Search, p.muted);
+    let inner = Rect::from_min_max(pos2(rect.left() + 30.0, rect.top()), pos2(rect.right() - 8.0, rect.bottom()));
+    let edit = egui::TextEdit::singleline(text)
+        .id(id)
+        .frame(egui::Frame::NONE)
+        .hint_text(egui::RichText::new("Search").color(p.muted))
+        .font(body())
+        .text_color(p.text)
+        .vertical_align(egui::Align::Center)
+        .desired_width(inner.width());
+    ui.put(inner, edit)
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct Palette {
     /// Window background.
@@ -89,14 +137,14 @@ const fn hex(rgb: u32) -> Color32 {
 const LIGHT: Palette = Palette {
     bg: hex(0xF5F6F8),
     surface: hex(0xFFFFFF),
-    hover: hex(0xF3F6FB),
+    hover: hex(0xF2F6F7),
     border: hex(0xE2E5EB),
     text: hex(0x1A1C22),
     muted: hex(0x5F6471),
-    accent: hex(0x2563EB),
-    accent_text: hex(0x1D4FC4),
+    accent: hex(0x07788A),
+    accent_text: hex(0x05616F),
     on_accent: hex(0xFFFFFF),
-    accent_soft: hex(0xE8EFFD),
+    accent_soft: hex(0xDFF1F4),
     control: hex(0xFFFFFF),
     control_hover: hex(0xEFF1F5),
     track: hex(0xE9EBF0),
@@ -115,10 +163,10 @@ const DARK: Palette = Palette {
     border: hex(0x2C2F3A),
     text: hex(0xEAECF1),
     muted: hex(0x989DAB),
-    accent: hex(0x6E9BFF),
-    accent_text: hex(0x9DBBFF),
-    on_accent: hex(0x10131A),
-    accent_soft: hex(0x1F2B47),
+    accent: hex(0x45BFD2),
+    accent_text: hex(0x7DD5E3),
+    on_accent: hex(0x0A1518),
+    accent_soft: hex(0x15343B),
     control: hex(0x23262F),
     control_hover: hex(0x2C303B),
     track: hex(0x2E313C),
@@ -272,17 +320,26 @@ pub fn section_label(ui: &mut egui::Ui, text: &str, p: Palette) {
     );
 }
 
-/// The one filled button on the screen: the thing to press next.
-pub fn primary_button<'a>(p: Palette, text: impl Into<String>, enabled: bool, width: f32) -> egui::Button<'a> {
-    let label = egui::RichText::new(text)
-        .family(semibold())
-        .size(15.5)
-        .color(if enabled { p.on_accent } else { p.muted });
-    egui::Button::new(label)
-        .fill(if enabled { p.accent } else { p.track })
-        .stroke(Stroke::NONE)
-        .corner_radius(10)
-        .min_size(Vec2::new(width, PRIMARY_HEIGHT))
+/// The one filled button on the screen: the thing to press next, with its
+/// label centred.
+pub fn primary(ui: &mut egui::Ui, text: &str, enabled: bool, width: f32, p: Palette) -> egui::Response {
+    let sense = if enabled { Sense::click() } else { Sense::hover() };
+    let (rect, response) = ui.allocate_exact_size(vec2(width, PRIMARY_HEIGHT), sense);
+    let hovered = enabled && response.hovered();
+    let fill = match (enabled, hovered) {
+        (false, _) => p.track,
+        (true, true) => p.accent_text,
+        (true, false) => p.accent,
+    };
+    ui.painter().rect_filled(rect, 10, fill);
+    let fg = if enabled { p.on_accent } else { p.muted };
+    let galley = truncated(ui.painter(), text, FontId::new(15.5, semibold()), fg, width - 24.0);
+    ui.painter().galley(rect.center() - galley.size() / 2.0, galley, fg);
+    if enabled {
+        response.on_hover_cursor(egui::CursorIcon::PointingHand)
+    } else {
+        response
+    }
 }
 
 /// A quiet bordered button for everything that is not the next step.
@@ -327,12 +384,85 @@ pub enum Icon {
     Plus,
     Folder,
     Retry,
+    Search,
+    Copy,
+    /// An arrow down into a tray: save or download.
+    Save,
+    Check,
+    Alert,
+    /// Sound bars: an audio file.
+    Wave,
+    /// A film frame: a video file.
+    Film,
+    ChevronDown,
+    ChevronRight,
 }
 
 pub fn paint_icon(painter: &egui::Painter, centre: Pos2, icon: Icon, color: Color32) {
     let stroke = Stroke::new(1.6, color);
     let c = centre;
     match icon {
+        Icon::Search => {
+            painter.circle_stroke(c + vec2(-1.5, -1.5), 4.5, stroke);
+            painter.line_segment([c + vec2(1.8, 1.8), c + vec2(5.5, 5.5)], Stroke::new(2.0, color));
+        }
+        Icon::Copy => {
+            let back = Rect::from_min_size(c + vec2(-6.0, -6.0), vec2(8.5, 9.5));
+            let front = Rect::from_min_size(c + vec2(-2.5, -3.0), vec2(8.5, 9.5));
+            painter.add(Shape::line(
+                vec![back.left_bottom(), back.left_top(), back.right_top()],
+                stroke,
+            ));
+            painter.rect_stroke(front, 1.5, stroke, StrokeKind::Middle);
+        }
+        Icon::Save => {
+            painter.line_segment([c + vec2(0.0, -6.5), c + vec2(0.0, 2.5)], stroke);
+            painter.add(Shape::line(
+                vec![c + vec2(-3.5, -1.0), c + vec2(0.0, 2.5), c + vec2(3.5, -1.0)],
+                stroke,
+            ));
+            painter.add(Shape::line(
+                vec![c + vec2(-6.0, 2.0), c + vec2(-6.0, 6.0), c + vec2(6.0, 6.0), c + vec2(6.0, 2.0)],
+                stroke,
+            ));
+        }
+        Icon::Check => {
+            painter.add(Shape::line(
+                vec![c + vec2(-4.5, 0.5), c + vec2(-1.5, 3.5), c + vec2(4.5, -3.5)],
+                Stroke::new(1.9, color),
+            ));
+        }
+        Icon::Alert => {
+            painter.circle_stroke(c, 6.5, stroke);
+            painter.line_segment([c + vec2(0.0, -3.5), c + vec2(0.0, 1.0)], Stroke::new(1.8, color));
+            painter.circle_filled(c + vec2(0.0, 3.6), 1.1, color);
+        }
+        Icon::Wave => {
+            for (x, h) in [(-6.0, 3.0), (-3.0, 7.0), (0.0, 11.0), (3.0, 6.0), (6.0, 3.5)] {
+                painter.line_segment(
+                    [c + vec2(x, -h / 2.0), c + vec2(x, h / 2.0)],
+                    Stroke::new(1.9, color),
+                );
+            }
+        }
+        Icon::Film => {
+            let frame = Rect::from_center_size(c, vec2(15.0, 11.0));
+            painter.rect_stroke(frame, 2, stroke, StrokeKind::Middle);
+            let play = vec![c + vec2(-2.0, -2.8), c + vec2(3.0, 0.0), c + vec2(-2.0, 2.8)];
+            painter.add(Shape::convex_polygon(play, color, Stroke::NONE));
+        }
+        Icon::ChevronDown => {
+            painter.add(Shape::line(
+                vec![c + vec2(-4.0, -2.0), c + vec2(0.0, 2.0), c + vec2(4.0, -2.0)],
+                stroke,
+            ));
+        }
+        Icon::ChevronRight => {
+            painter.add(Shape::line(
+                vec![c + vec2(-2.0, -4.0), c + vec2(2.0, 0.0), c + vec2(-2.0, 4.0)],
+                stroke,
+            ));
+        }
         Icon::Close => {
             let d = 4.5;
             painter.line_segment([c + vec2(-d, -d), c + vec2(d, d)], stroke);
@@ -391,6 +521,160 @@ pub fn icon_button(ui: &mut egui::Ui, icon: Icon, p: Palette) -> egui::Response 
     let color = if response.hovered() { p.text } else { p.muted };
     paint_icon(ui.painter(), rect.center(), icon, color);
     response.on_hover_cursor(egui::CursorIcon::PointingHand)
+}
+
+/// A secondary button with a drawn icon before its text.
+pub fn icon_text_button(ui: &mut egui::Ui, icon: Icon, text: &str, p: Palette) -> egui::Response {
+    let enabled = ui.is_enabled();
+    let fg = if enabled { p.text } else { p.muted };
+    let galley = ui
+        .painter()
+        .layout_no_wrap(text.to_owned(), body(), fg);
+    let width = 12.0 + 16.0 + 6.0 + galley.size().x + 14.0;
+    let (rect, response) = ui.allocate_exact_size(vec2(width, CONTROL_HEIGHT), Sense::click());
+    let hovered = enabled && response.hovered();
+    let fill = if hovered { p.control_hover } else { p.control };
+    ui.painter().rect(
+        rect,
+        CONTROL_RADIUS,
+        fill,
+        Stroke::new(1.0, p.border),
+        StrokeKind::Inside,
+    );
+    let icon_color = if enabled { p.accent_text } else { p.muted };
+    paint_icon(ui.painter(), pos2(rect.left() + 20.0, rect.center().y), icon, icon_color);
+    ui.painter().galley(
+        pos2(rect.left() + 34.0, rect.center().y - galley.size().y / 2.0),
+        galley,
+        fg,
+    );
+    if enabled {
+        response.on_hover_cursor(egui::CursorIcon::PointingHand)
+    } else {
+        response
+    }
+}
+
+/// Accent-coloured clickable text, underlined under the pointer.
+pub fn link(ui: &mut egui::Ui, text: &str, p: Palette) -> egui::Response {
+    let galley = ui
+        .painter()
+        .layout_no_wrap(text.to_owned(), small(), p.accent_text);
+    let (rect, response) = ui.allocate_exact_size(galley.size(), Sense::click());
+    if response.hovered() {
+        let y = rect.bottom() - 1.0;
+        ui.painter()
+            .line_segment([pos2(rect.left(), y), pos2(rect.right(), y)], Stroke::new(1.0, p.accent_text));
+    }
+    ui.painter().galley(rect.min, galley, p.accent_text);
+    response.on_hover_cursor(egui::CursorIcon::PointingHand)
+}
+
+/// A "More options" style toggle with a chevron. Returns true when clicked.
+pub fn disclosure(ui: &mut egui::Ui, open: bool, text: &str, p: Palette) -> bool {
+    let galley = ui
+        .painter()
+        .layout_no_wrap(text.to_owned(), small(), p.muted);
+    let (rect, response) = ui.allocate_exact_size(vec2(galley.size().x + 18.0, 20.0), Sense::click());
+    let color = if response.hovered() { p.text } else { p.muted };
+    let icon = if open { Icon::ChevronDown } else { Icon::ChevronRight };
+    paint_icon(ui.painter(), pos2(rect.left() + 5.0, rect.center().y), icon, color);
+    ui.painter().galley(
+        pos2(rect.left() + 16.0, rect.center().y - galley.size().y / 2.0),
+        galley,
+        color,
+    );
+    response.on_hover_cursor(egui::CursorIcon::PointingHand).clicked()
+}
+
+/// How a status reads: its colours come from the palette.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Tone {
+    Neutral,
+    Accent,
+    Success,
+    Warn,
+    Error,
+}
+
+/// (text, fill) for a pill of this tone.
+pub fn tone_colors(tone: Tone, p: Palette) -> (Color32, Color32) {
+    match tone {
+        Tone::Neutral => (p.muted, p.track),
+        Tone::Accent => (p.accent_text, p.accent_soft),
+        Tone::Success => (p.success, p.success_soft),
+        Tone::Warn => (p.warn, p.warn_soft),
+        Tone::Error => (p.error, p.error_soft),
+    }
+}
+
+pub fn tone_pill(ui: &mut egui::Ui, text: &str, tone: Tone, p: Palette) -> egui::Response {
+    let (fg, bg) = tone_colors(tone, p);
+    pill(ui, text, fg, bg)
+}
+
+/// A rounded square with a file-kind icon, at the start of a file row.
+pub fn file_tile(painter: &egui::Painter, rect: Rect, video: bool, tone: Tone, p: Palette) {
+    let (fg, bg) = match tone {
+        Tone::Neutral => (p.muted, p.track),
+        other => tone_colors(other, p),
+    };
+    painter.rect_filled(rect, CONTROL_RADIUS, bg);
+    paint_icon(painter, rect.center(), if video { Icon::Film } else { Icon::Wave }, fg);
+}
+
+/// A dashed rounded outline, for the place files can be dropped.
+pub fn dashed_outline(painter: &egui::Painter, rect: Rect, color: Color32) {
+    let r = CARD_RADIUS as f32;
+    let mut points = Vec::new();
+    let corners = [
+        (pos2(rect.right() - r, rect.top() + r), -90.0f32),
+        (pos2(rect.right() - r, rect.bottom() - r), 0.0),
+        (pos2(rect.left() + r, rect.bottom() - r), 90.0),
+        (pos2(rect.left() + r, rect.top() + r), 180.0),
+    ];
+    for (centre, start) in corners {
+        for i in 0..=8 {
+            let a = (start + i as f32 * 90.0 / 8.0).to_radians();
+            points.push(centre + vec2(a.cos() * r, a.sin() * r));
+        }
+    }
+    points.push(points[0]);
+    let shapes = Shape::dashed_line(&points, Stroke::new(1.4, color), 6.0, 4.0);
+    painter.extend(shapes);
+}
+
+/// The empty-state picture: sound bars turning into lines of text.
+pub fn paint_motif(painter: &egui::Painter, centre: Pos2, p: Palette) {
+    let bars = [10.0, 22.0, 34.0, 46.0, 30.0, 18.0, 38.0, 24.0, 12.0];
+    let bar_w = 5.0;
+    let gap = 4.0;
+    let left = centre.x - 92.0;
+    for (i, h) in bars.iter().enumerate() {
+        let x = left + i as f32 * (bar_w + gap);
+        let rect = Rect::from_center_size(pos2(x + bar_w / 2.0, centre.y), vec2(bar_w, *h));
+        painter.rect_filled(rect, 2.5, p.accent.gamma_multiply(0.35 + 0.65 * (i as f32 / 8.0)));
+    }
+    // An arrow from the sound to the text.
+    let arrow_x = left + 9.0 * (bar_w + gap) + 8.0;
+    let stroke = Stroke::new(2.0, p.muted);
+    painter.line_segment([pos2(arrow_x, centre.y), pos2(arrow_x + 18.0, centre.y)], stroke);
+    painter.add(Shape::line(
+        vec![
+            pos2(arrow_x + 13.0, centre.y - 5.0),
+            pos2(arrow_x + 18.0, centre.y),
+            pos2(arrow_x + 13.0, centre.y + 5.0),
+        ],
+        stroke,
+    ));
+    // Lines of text on a page.
+    let page = Rect::from_min_size(pos2(arrow_x + 30.0, centre.y - 34.0), vec2(64.0, 68.0));
+    painter.rect(page, 8, p.surface, Stroke::new(1.5, p.border), StrokeKind::Inside);
+    for (i, w) in [44.0, 36.0, 44.0, 26.0].iter().enumerate() {
+        let y = page.top() + 16.0 + i as f32 * 12.0;
+        let line = Rect::from_min_size(pos2(page.left() + 10.0, y - 2.5), vec2(*w, 5.0));
+        painter.rect_filled(line, 2.5, if i == 0 { p.accent } else { p.track });
+    }
 }
 
 /// A rounded progress track. `None` is an unknown amount: a short segment

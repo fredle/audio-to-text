@@ -6,10 +6,21 @@ description = "Turn recordings, meetings and videos into text and subtitles on y
 repository = "https://github.com/fredle/audio-to-text"
 
 [dependencies]
+# Licence keys: Ed25519 signatures checked offline.
+base64 = "0.23.1"
+ed25519-dalek = "3.0.0"
 eframe = { version = "0.36.2", default-features = false, features = ["glow", "default_fonts"] }
+# Open and save dialogs.
+rfd = "0.18.0"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
+# The one-off speech model download; already in the tree through velopack.
+ureq = "3.5.2"
 velopack = "1.2"
+# whisper.cpp, CPU only: the speech recognition itself.
+whisper-rs = "0.16.0"
+# Media Foundation, to decode audio and video with Windows' own codecs.
+windows = { version = "0.62.2", features = ["Win32_Media_MediaFoundation", "Win32_System_Com", "Win32_System_Com_StructuredStorage", "Win32_System_Variant", "Win32_Foundation"] }
 
 [profile.release]
 opt-level = "s"

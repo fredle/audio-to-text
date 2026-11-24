@@ -8,7 +8,12 @@
 #![windows_subsystem = "windows"]
 
 mod app;
+mod decode;
+mod engine;
+mod license;
+mod model;
 mod settings;
+mod transcript;
 mod shots;
 mod theme;
 mod update;

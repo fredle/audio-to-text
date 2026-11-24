@@ -1,0 +1,9 @@
+{
+  "accent": "#07788A",
+  "scenes": [
+    { "name": "1-transcript", "title": "Recordings become readable text", "body": "Meetings come back as paragraphs with times, not a wall of short lines." },
+    { "name": "2-transcribing", "title": "No time limit, no minutes", "body": "A 90-minute lecture runs on your own PC, with the time left shown as it goes." },
+    { "name": "3-search-export", "title": "Search it, save subtitles", "body": "Find any word, copy the text, or save it as TXT, SRT or VTT." },
+    { "name": "4-queue", "title": "Many files, many languages", "body": "Queue a folder of files and let the language be detected for each one." }
+  ]
+}

@@ -13,8 +13,8 @@ Add-Type -AssemblyName System.Drawing
 
 # The tile's gradient, top-left to bottom-right: the app's accent, lighter to
 # deeper. Keep them close in hue; the mark on top is white.
-$TileTop    = [System.Drawing.Color]::FromArgb(255, 74, 134, 255)
-$TileBottom = [System.Drawing.Color]::FromArgb(255, 29, 79, 196)
+$TileTop    = [System.Drawing.Color]::FromArgb(255, 24, 160, 180)
+$TileBottom = [System.Drawing.Color]::FromArgb(255, 5, 97, 111)
 
 function New-RoundRect([single]$x, [single]$y, [single]$w, [single]$h, [single]$r) {
     $p = [System.Drawing.Drawing2D.GraphicsPath]::new()
@@ -32,13 +32,43 @@ function New-RoundRect([single]$x, [single]$y, [single]$w, [single]$h, [single]$
 # no thin lines, no more than three elements.
 #   $g      the Graphics to draw on (anti-aliased)
 #   $left, $top, $size   the square the mark must stay inside
-# Replace the placeholder below (a plain ring) with the app's own mark.
+# The mark: a white page with three sound bars cut out of it - sound turned
+# into a document. The bars are holes (even-odd fill), so the tile shows
+# through them.
 function Draw-Mark($g, [single]$left, [single]$top, [single]$size) {
-    $white = [System.Drawing.Color]::White
-    $pen = [System.Drawing.Pen]::new($white, [single]($size * 0.14))
-    $inset = $size * 0.12
-    $g.DrawEllipse($pen, $left + $inset, $top + $inset, $size - 2 * $inset, $size - 2 * $inset)
-    $pen.Dispose()
+    $path = [System.Drawing.Drawing2D.GraphicsPath]::new([System.Drawing.Drawing2D.FillMode]::Alternate)
+    $pageW = $size * 0.70
+    $pageH = $size * 0.96
+    $pageX = $left + ($size - $pageW) / 2
+    $pageY = $top + ($size - $pageH) / 2
+    # The page, with its top-right corner cut off like a file.
+    $r = $size * 0.11
+    $d = 2 * $r
+    $c = $size * 0.24
+    $page = [System.Drawing.Drawing2D.GraphicsPath]::new()
+    $page.AddLine($pageX + $r, $pageY, $pageX + $pageW - $c, $pageY)
+    $page.AddLine($pageX + $pageW - $c, $pageY, $pageX + $pageW, $pageY + $c)
+    $page.AddLine($pageX + $pageW, $pageY + $c, $pageX + $pageW, $pageY + $pageH - $r)
+    $page.AddArc($pageX + $pageW - $d, $pageY + $pageH - $d, $d, $d, 0, 90)
+    $page.AddArc($pageX, $pageY + $pageH - $d, $d, $d, 90, 90)
+    $page.AddArc($pageX, $pageY, $d, $d, 180, 90)
+    $page.CloseFigure()
+    $path.AddPath($page, $false)
+    $barW = $size * 0.12
+    $gap = $size * 0.07
+    $heights = @(0.30, 0.54, 0.38)
+    $total = 3 * $barW + 2 * $gap
+    $x = $pageX + ($pageW - $total) / 2
+    # A little below the middle, clear of the cut corner.
+    $cy = $pageY + $pageH * 0.55
+    foreach ($h in $heights) {
+        $bh = $size * $h
+        $path.AddPath((New-RoundRect $x ($cy - $bh / 2) $barW $bh ($barW / 2)), $false)
+        $x += $barW + $gap
+    }
+    $brush = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::White)
+    $g.FillPath($brush, $path)
+    $brush.Dispose(); $path.Dispose()
 }
 
 # ------------------------------------------------------- Factory plumbing
