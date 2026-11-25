@@ -8,6 +8,7 @@
 #![windows_subsystem = "windows"]
 
 mod app;
+mod feedback;
 mod decode;
 mod engine;
 mod license;
