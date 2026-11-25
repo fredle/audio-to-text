@@ -1,6 +1,6 @@
 [package]
 name = "audio_to_text"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "Turn recordings, meetings and videos into text and subtitles on your own PC, with no time limit."
 repository = "https://github.com/fredle/audio-to-text"
